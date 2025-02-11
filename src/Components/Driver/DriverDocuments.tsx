@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-// import { formatDistanceToNow, parse } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { FaFilter } from "react-icons/fa";
 import { IoIosClose } from "react-icons/io";
+import DriverService from "../../../services/driverProfileService"
 
 export default function DriverDocuments() {
 
   interface Driver {
-    driverProfileId: string;
+    _id: string;
     fullName: string;
     wheelCount: number;
     status: string;
     timeAgo: string;
+    createdAt: string;
   }
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -30,25 +31,24 @@ export default function DriverDocuments() {
   const navigate = useNavigate();
 
   // Fetch driver data from the server
-  const fetchDrivers = () => {
-    axios.get(`http://localhost:3000/api/v1/profile/driver?page=${page}&limit=4&sort=desc&status=${state.status}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('Token')}`
-      }
-    })
-      .then((response) => {
-        const newDrivers = response.data.data.drivers; 
-        setDrivers((prevDrivers) =>
-          page === 1 ? newDrivers : [...prevDrivers, ...newDrivers]
-        );
+  const fetchDrivers = async () => {
+    try {
+      const response = await DriverService.drivers(page, state); // Pass `page` and `state` properly
+      const newDrivers = response;
 
-        setState((prevState) => ({
-          ...prevState,
-          hasmore:newDrivers.length === 4,
-        }));
-      })
-      .catch((error) => console.error("Error fetching drivers:", error));
-  }
+      setDrivers((prevDrivers) =>
+        page === 1 ? newDrivers : [...prevDrivers, ...newDrivers]
+      );
+
+      setState((prevState) => ({
+        ...prevState,
+        hasmore: newDrivers.length > 0 && newDrivers.length === 10,
+      }));
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      setState((prevState) => ({ ...prevState, hasmore: false }));
+    }
+  };
 
   useEffect(() => {
     fetchDrivers();
@@ -67,31 +67,31 @@ export default function DriverDocuments() {
 
     return searchFeature && matchesVehicleType;
   })
+    .map((driver) => {  //for time ago user created date
+      if (!driver.createdAt) {
+        console.warn("Missing createdAt for driver:", driver);
+        return { ...driver, timeAgo: "N/A" };
+      }
+
+      try {
+        const parsedDate = parseISO(driver.createdAt);
+        const timeAgo = formatDistanceToNow(parsedDate, { addSuffix: true }).replace(
+          /^about\s/,
+          ""
+        );
+        return { ...driver, timeAgo };
+      } catch (error) {
+        console.error("Error parsing date:", error);
+        return { ...driver, timeAgo: "Invalid date" };
+      }
+    });
 
   // Pagination logic for infinite scrolling
   const fetchMoreData = () => {
     if (state.hasmore) {
-      setTimeout(() => {
-        setPage((prevPage) => prevPage + 1);
-      }, 5000); // 5000ms = 5 seconds
+      setPage((prevPage) => prevPage + 1);
     }
   };
-
-
-
-  // .map((driver) => {
-  //   const parsedDate = parse(driver.date, "MM/dd/yyyy HH:mm", new Date());
-  //   const timeAgo = formatDistanceToNow(parsedDate, { addSuffix: true }).replace(
-  //     /^about\s/,
-  //     ""
-  //   );
-  //   return { ...driver, timeAgo };
-  // });
-
-  // Pagination logic for infinite scrolling
-
-
-
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -107,6 +107,8 @@ export default function DriverDocuments() {
     setState((prev) => ({ ...prev, search: name, hiddenSuggestion: "hidden" }));
   };
 
+
+  // filter section
   const filterHandle = () => {
     setState((prev) => ({ ...prev, filter: !prev.filter }))
   }
@@ -114,14 +116,17 @@ export default function DriverDocuments() {
     setState((prev) => ({ ...prev, filter: false }))
   }
 
+  // filter status 
   const handleStatus = (status: string) => {
-    setState((prev) => ({ ...prev, status: status, filter: false }))
+    setPage(1); // Reset page to 1
+    setState((prev) => ({ ...prev, status: status, filter: false }));
+  };
 
-  }
-
+  // filter vehicle type
   const handleVehicleType = (type: number) => {
+    setPage(1); // Reset page to 1
     setState((prev) => ({ ...prev, vehicleType: type, filter: false }));
-  }
+  };
 
   return (
     <div className="bg-gray-100 min-h-screen py-6">
@@ -195,6 +200,10 @@ export default function DriverDocuments() {
                       className="px-4 py-2 border rounded hover:bg-gray-100 transition">
                       Rejected
                     </button>
+                    <button onClick={() => handleStatus("C")}
+                      className="px-4 py-2 border rounded hover:bg-gray-100 transition">
+                      Canceled
+                    </button>
                   </div>
                 </div>
               </div>
@@ -207,7 +216,7 @@ export default function DriverDocuments() {
           <div className="border border-gray-300 rounded-md shadow-sm bg-white w-64 ml-2">
             {filteredDrivers.map((driver) => (
               <div
-                key={driver.driverProfileId}
+                key={driver._id}
                 onClick={() => handleSearchSuggestionClick(driver.fullName)}
                 className={`${state.hiddenSuggestion} p-3 cursor-pointer hover:bg-gray-100 transition-all`}
               >
@@ -251,12 +260,12 @@ export default function DriverDocuments() {
               </tr>
             </thead>
             <tbody>
-              {filteredDrivers.slice(0, page * 4).map((driver) => (
+              {filteredDrivers.slice(0, page * 10).map((driver) => (
 
                 <tr
-                  key={driver.driverProfileId}
+                  key={driver._id}
                   className="border-b text-center text-sm hover:bg-gray-50 cursor-pointer transition-all"
-                  onClick={() => navigate(`document/${driver.driverProfileId}`)}
+                  onClick={() => navigate(`document/${driver._id}`)}
                 >
                   <td className="py-3 px-2">{driver.fullName}</td>
                   <td className="py-3 px-2">

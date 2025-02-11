@@ -10,14 +10,17 @@ import Dashboard from "./Components/Dashboard"
 import Login from "./Components/Login";
 import DriverDocuments from "./Components/Driver/DriverDocuments";
 import DocumentView from "./Components/Driver/DocumentView";
-import VerifideDriver from "./Components/Driver/VerifideDriver";
-import PendingDriver from "./Components/Driver/PendingDriver";
 import PassengerList from "./Components/Passenger/PassengerList";
 import PassengerView from "./Components/Passenger/PassengerView";
 import Alllist from "./Components/Rider requests/Alllist";
 import AlllistView from "./Components/Rider requests/AlllistView";
 import Revenue from "./Revenue/Revenue";
 import Signup from "./Components/Signup";
+import VehicleRegister from "./Components/Vehicle Register/VehicleRegister";
+import ViewColor from "./Components/Vehicle Register/ViewColor";
+import Brand from "./Components/Vehicle Register/Brand";
+import Color from "./Components/Vehicle Register/Color";
+import Model from "./Components/Vehicle Register/Model";
 
 function App() {
   const router = createBrowserRouter([
@@ -33,97 +36,118 @@ function App() {
       path: "/",
       element: <AdminRout />,
       children: [
-        
+
         {
           path: "/dashboard",
           element: <Dashboard />,
         },
         {
-          path: "/verified-drivers",
-          element: <VerifideDriver />,
-        },
-        {
-          path: "/pending-drivers",
-          element: <PendingDriver />,
-        },
-        
-        {
-          path:"passengerlist",
-          
-          children:[
+          path: 'registervehicle',
+          children: [
             {
               path:"",
-              element:<PassengerList/>,
+              element:<VehicleRegister/>
+            },
+            {
+              path:"brand",
+              element:<Brand/>
+            },
+            {
+              path:"model",
+              element:<Model/>
+            },
+            {
+              path:"color",
+              children:[
+                {
+                  path:"",
+                  element:<Color/>
+                },
+                {
+                  path:"view/:slug",
+                  element:<ViewColor/>
+                }
+              ] 
+            },
+          ]
+        },
+        {
+          path: "passengerlist",
+
+          children: [
+            {
+              path: "",
+              element: <PassengerList />,
             },
             {
               path: "view/:slug",
               element: <PassengerView />,
-             
+
             },
           ]
         },
 
         {
           path: "driver-document",
-          children:[
+          children: [
             {
-              path:'',
-              element: <DriverDocuments/>,
+              path: '',
+              element: <DriverDocuments />,
             },
             {
               path: "document/:slug",
-              element: <DocumentView/>,
+              element: <DocumentView />,
             },
           ]
-          
+
         },
         {
           path: "Alllist",
-          children:[
+          children: [
             {
-              path:'',
-              element: <Alllist/>,
+              path: '',
+              element: <Alllist />,
             },
             {
-              path:'view/:slug',
-              element: <AlllistView/>,
+              path: 'view/:slug',
+              element: <AlllistView />,
             },
           ]
-          
+
         },
         {
           path: "/revenue",
           element: <Revenue />,
         },
-        
-      
-        
+
+
+
         {
           path: "ads",
-          children:[
+          children: [
             {
-              path:"",
-              element:<Ads/>  
+              path: "",
+              element: <Ads />
             },
             {
               path: "uploadads",
               element: <UploadAds />,
             },
             {
-              path:"edit/:slug",
-              element: <UploadAds/> 
-            },   
+              path: "edit/:slug",
+              element: <UploadAds />
+            },
           ]
         },
-       
+
       ],
     },
   ]);
 
   return (
     <>
-    <RouterProvider router={router} />
-    <ToastContainer />
+      <RouterProvider router={router} />
+      <ToastContainer />
     </>
   );
 }

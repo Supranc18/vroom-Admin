@@ -1,22 +1,20 @@
-import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { MdDeleteForever, MdModeEdit, MdOutlineArrowDropDown } from 'react-icons/md';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import DriverService from "../../../services/driverProfileService"
 
 
 export default function DocumentView() {
-
     const navigate = useNavigate()
-
 
     type RejectState = {
         message: string;
         vehicleImages: string[];
         bluebookImages: string[];
-        // licenseImages: string[];
+        licenseImage: string[];
+        avatar: string[];
     };
-
     const [status, setStatus] = useState("");
     const [state, setState] = useState({
         dropdown: false,
@@ -28,13 +26,20 @@ export default function DocumentView() {
         message: '',
         vehicleImages: [],
         bluebookImages: [],
-        // licenseImages: [],
+        licenseImage: [],
+        avatar: []
     });
 
     const [driverDetail, setDriverDetail] = useState({
         avatar: "",
         name: "",
-        id: "",
+        userId: "",
+        _id: "",
+        averageRating: "",
+        totalRatings: "",
+        completedTripCount: "",
+        updatedAt: "",
+        createdAt: "",
         vehicleDetail: {
             wheelCount: 0,
             brandName: "",
@@ -58,19 +63,20 @@ export default function DocumentView() {
 
     const prams = useParams();
 
-
-    //fetching data
+    //fetching data get user by id
     useEffect(() => {
-        if (prams.slug) {
-            axios.get(`http://localhost:3000/api/v1/profile/driver/${prams.slug}`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('Token')}`
+        const fetchDriverData = async () => {
+            if (prams.slug) {
+                try {
+                    const response = await DriverService.driversById({ slug: prams.slug });
+                    setDriverDetail(response);
+                } catch (error) {
+                    console.error('Error fetching driver details:', error);
                 }
-            })
-                .then((res) => {
-                    setDriverDetail(res.data.data);
-                });
-        }
+            }
+        };
+
+        fetchDriverData();
     }, [prams.slug]);
 
     const dropdownHandle = () => {
@@ -96,44 +102,45 @@ export default function DocumentView() {
         });
     };
 
+    // fetch reject photo api
     const handleReject = async () => {
+        if (!prams.slug) {
+            return;
+        }
         try {
-
             const bluebookImagesObject: { [key: string]: string } = {};
             reject.bluebookImages.forEach((image) => {
-                bluebookImagesObject[image] = "true"; 
+                bluebookImagesObject[image] = "";
             });
 
             const vehicleImagesObject: { [key: string]: string } = {};
             reject.vehicleImages.forEach((image) => {
-                vehicleImagesObject[image] = "true"; 
+                vehicleImagesObject[image] = "";
             });
-            const response 
-            = await axios.patch(
-                `http://localhost:3000/api/v1/profile/driver/verify/reject/${prams.slug}`,
-                {
-                    message: reject.message,
-                    fields: {
-                        vehicleImages: vehicleImagesObject,
-                        bluebookImages: bluebookImagesObject,
-                        // licenseImages: reject.licenseImages,
-                    },
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('Token')}`,
-                    },
+
+            const rejectData = {
+                message: reject.message,
+                fields: {
+                    vehicleImages: vehicleImagesObject,
+                    bluebookImages: bluebookImagesObject,
+                    licenseImage: "",
+                    avatar: ""
                 }
+            };
+            const response = await DriverService.reject({ slug: prams.slug },
+                rejectData
             );
-            console.log('Rejection status updated:', response.data);
+            toast.success("Rejected message submmited")
+            console.log('Rejection status updated:', response);
         } catch (error) {
+            toast.error("Rejected message submmited fail")
             console.error('Error updating rejection status:', error);
         }
     };
 
     // Render rejected status form
     const renderRejectedStatus = () => {
-        if (status === 'Reject') {
+        if (status === 'R') {
             return (
                 <div className="bg-red-100 p-4 mt-4 border border-red-500">
                     <p className="text-red-500 font-bold">This document has been rejected.</p>
@@ -165,9 +172,6 @@ export default function DocumentView() {
                             name="vehicleImages"
                             onChange={handleCheckboxChange}
                         />
-                        {reject && (<>
-                        rejected
-                        </>)}
                         <label className="ml-2" htmlFor="back">
                             Back
                         </label>
@@ -209,11 +213,24 @@ export default function DocumentView() {
                         <input
                             type="checkbox"
                             value="license"
-                            name="licenseImages"
+                            name="licenseImage"
                             onChange={handleCheckboxChange}
                         />
                         <label className="ml-2" htmlFor="license">
                             License
+                        </label>
+                    </div>
+
+                    <div>
+                        <p>Avatar</p>
+                        <input
+                            type="checkbox"
+                            value="avatar"
+                            name="avatar"
+                            onChange={handleCheckboxChange}
+                        />
+                        <label className="ml-2" htmlFor="avatar">
+                            Avatar
                         </label>
                     </div>
                     <div>
@@ -221,7 +238,7 @@ export default function DocumentView() {
                             Submit
                         </button>
                     </div>
-                    
+
                 </div>
             );
         }
@@ -247,49 +264,71 @@ export default function DocumentView() {
     const { dropdown, isEditing, deleteConfirm, largeImage } = state;
 
     // Edit Driver Profile
-
     const handleEditClick = () => {
         if (isEditing) {
-            const { _id, userId, averageRating, totalRatings, completedTripCount, ...updatedDriverDetail } = driverDetail;
-            axios.patch(`http://localhost:3000/api/v1/profile/driver/${prams.slug}`, updatedDriverDetail, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('Token')}`
-                }
-            })
-                .then((res) => {
-                    toast.success('Driver details updated successfully');
-                    console.log(res);
-                })
-                .catch((error) => {
-                    console.error('Error updating driver details:', error);
-                });
+            const { _id, userId, averageRating, totalRatings, completedTripCount, updatedAt, createdAt, vehicleImages, bluebookImages, licenseImage, ...updatedDriverDetail } = driverDetail;
+
+            console.log(userId, _id, averageRating, totalRatings, completedTripCount, updatedAt, createdAt, vehicleImages, bluebookImages, licenseImage);
+
+            if (prams.slug) {
+                DriverService.edit(prams.slug, updatedDriverDetail)
+                    .then((response) => {
+                        toast.success("Driver details updated successfully");
+                        console.log(response);
+
+                    })
+                    .catch((error) => {
+                        toast.error(`Driver details updated fail `);
+                        console.log(error);
+
+                        toast.error(error.message)
+                    });
+            } else {
+                console.error('Slug is undefined');
+                toast.error('Invalid slug');
+            }
         }
 
         setState((prev) => ({ ...prev, isEditing: !prev.isEditing }));
     };
 
 
-    //   Delete driver Profile
-    const deleteHandle = () => {
-        axios.delete(`http://localhost:3000/api/v1/profile/driver/${prams.slug}`, {
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem('Token')}`,
-            }
-        })
-            .then((response) => {
-                setState((prev) => ({ ...prev, deleteConfirm: false }));
-                toast.success("Driver profile deleted successfully");
-                navigate("driver-document")
-                console.log(response);
-
-
+    // state verify or reject
+    const statusSubmit = () => {
+        if (prams.slug) {
+            DriverService.edit(prams.slug, { status: status },)
+            .then((res) => {
+                toast.success(`Form ${status === "V" ? "Verified" : "Rejected"} `);
+                navigate("/driver-document")
+                console.log(res);
             })
             .catch((error) => {
-                console.error('Error deleting driver profile:', error);
-                toast.error("Error deleting driver profile. Please try again.");
+                toast.error("please select verfification status")
+                console.error('Error submitting status:', error);
             });
 
-    }
+        }
+    };
+
+
+    //   Delete driver Profile
+    const deleteHandle = async () => {
+        if (prams.slug) {
+            try {
+                const response = await DriverService.deleteDriver(prams.slug);
+                setState((prev) => ({ ...prev, deleteConfirm: false }));
+                console.log("Driver profile deleted successfully:", response);
+
+                toast.success("Driver profile deleted successfully");
+                navigate("/driver-document");
+            } catch (error) {
+                console.error("Error deleting driver profile:", error);
+                toast.error("Error deleting driver profile. Please try again.");
+            }
+        } else {
+            console.warn("Slug is undefined, cannot delete driver profile.");
+        }
+    };
 
 
     return (
@@ -311,6 +350,9 @@ export default function DocumentView() {
                                     onClick={() => handleImageClick(driverDetail.avatar)}
                                 />
                                 <label className='font-semibold text-lg text-gray-600'>Uploaded Photo</label>
+                                <span className='text-red-500 font-bold'>
+                                    {reject["avatar"]?.includes("avatar") ? "Rejected: Avatar" : ""}
+                                </span>
                             </div>
 
                             {/* Action Buttons */}
@@ -370,7 +412,7 @@ export default function DocumentView() {
                                     <input
                                         className='px-4 py-2 w-full border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
                                         type="text"
-                                        value={driverDetail.name}
+                                        value={driverDetail.name || ""}
                                         onChange={(e) =>
                                             setDriverDetail((prev) => ({ ...prev, name: e.target.value }))
                                         }
@@ -442,7 +484,7 @@ export default function DocumentView() {
                                                 type="text"
                                                 name="brandname"
                                                 id="brand_name"
-                                                value={driverDetail.vehicleDetail.brandName}
+                                                value={driverDetail.vehicleDetail.brandName || ""}
                                                 onChange={(e) =>
                                                     setDriverDetail((prev) => ({
                                                         ...prev,
@@ -464,7 +506,7 @@ export default function DocumentView() {
                                                 type="text"
                                                 name="color"
                                                 id="color"
-                                                value={driverDetail.vehicleDetail.color}
+                                                value={driverDetail.vehicleDetail.color || ""}
                                                 onChange={(e) =>
                                                     setDriverDetail((prev) => ({
                                                         ...prev,
@@ -486,7 +528,7 @@ export default function DocumentView() {
                                                 type="text"
                                                 name="type"
                                                 id="type"
-                                                value={driverDetail.vehicleDetail.type}
+                                                value={driverDetail.vehicleDetail.type || ""}
                                                 onChange={(e) =>
                                                     setDriverDetail((prev) => ({
                                                         ...prev,
@@ -508,7 +550,7 @@ export default function DocumentView() {
                                                 type="text"
                                                 name="number"
                                                 id="number"
-                                                value={driverDetail.vehicleDetail.number}
+                                                value={driverDetail.vehicleDetail.number || ""}
                                                 onChange={(e) =>
                                                     setDriverDetail((prev) => ({
                                                         ...prev,
@@ -531,8 +573,8 @@ export default function DocumentView() {
                                         {/* Front Image */}
                                         <div className='text-center'>
                                             <img
-                                                className="w-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-                                                src={driverDetail.vehicleImages.front}
+                                                className="w-52 h-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                                                src={driverDetail.vehicleImages.front || ""}
                                                 alt="Vehicle Front"
                                                 onClick={() => handleImageClick(driverDetail.vehicleImages.front)}
                                             />
@@ -543,8 +585,8 @@ export default function DocumentView() {
                                         {/* Back Image */}
                                         <div className='text-center'>
                                             <img
-                                                className="w-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-                                                src={driverDetail.vehicleImages.back}
+                                                className="w-52 h-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                                                src={driverDetail.vehicleImages.back || ""}
                                                 alt="Vehicle Back"
                                                 onClick={() => handleImageClick(driverDetail.vehicleImages.back)}
                                             />
@@ -562,8 +604,8 @@ export default function DocumentView() {
                                         {/* Page 2 Image */}
                                         <div className='text-center'>
                                             <img
-                                                className="w-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-                                                src={driverDetail.bluebookImages.page2}
+                                                className="w-52 h-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                                                src={driverDetail.bluebookImages.page2 || ""}
                                                 alt="Bill Book Page 2"
                                                 onClick={() => handleImageClick(driverDetail.bluebookImages.page2)}
                                             />
@@ -574,8 +616,8 @@ export default function DocumentView() {
                                         {/* Page 3 Image */}
                                         <div className='text-center'>
                                             <img
-                                                className="w-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-                                                src={driverDetail.bluebookImages.page3}
+                                                className="w-52 h-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                                                src={driverDetail.bluebookImages.page3 || ""}
                                                 alt="Bill Book Page 3"
                                                 onClick={() => handleImageClick(driverDetail.bluebookImages.page3)}
                                             />
@@ -586,13 +628,13 @@ export default function DocumentView() {
                                         {/* Page 9 Image */}
                                         <div className='text-center'>
                                             <img
-                                                className="w-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-                                                src={driverDetail.bluebookImages.page9}
+                                                className="w-52 h-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                                                src={driverDetail.bluebookImages.page9 || ""}
                                                 alt="Bill Book Page 9"
                                                 onClick={() => handleImageClick(driverDetail.bluebookImages.page9)}
                                             />
                                             <span className='text-red-500 font-bold'>
-                                                {reject["bluebookImages"]?.includes("page9") ? "Rejected: page99" : ""}
+                                                {reject["bluebookImages"]?.includes("page9") ? "Rejected: page 9" : ""}
                                             </span>
                                         </div>
                                     </div>
@@ -604,14 +646,14 @@ export default function DocumentView() {
                                     <p className='font-semibold text-lg text-gray-700'>License Photo</p>
                                     <div className='text-center'>
                                         <img
-                                            className="w-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-                                            src={driverDetail.licenseImage}
+                                            className="w-52 h-52 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                                            src={driverDetail.licenseImage || ""}
                                             alt="License"
                                             onClick={() => handleImageClick(driverDetail.licenseImage)}
                                         />
-                                        {/* <span className='text-red-500 font-bold'>
-                                            {reject["licenseImage"]?.includes("License") ? "Rejected: License" : ""}
-                                        </span> */}
+                                        <span className='text-red-500 font-bold'>
+                                            {reject["licenseImage"]?.includes("licenseImage") ? "Rejected: License" : ""}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -654,41 +696,36 @@ export default function DocumentView() {
                             {dropdown && (
                                 <div className="ml-20 w-40 cursor-pointer p-2 border border-gray-300 rounded-lg bg-white shadow-lg mt-2">
                                     <ul className="space-y-2">
+
                                         <li>
                                             <button
-                                                className={`w-full text-left px-4 py-2 rounded-md hover:bg-blue-100 transition-colors duration-200 ${status === "Pending" ? "bg-blue-600 text-white" : "text-gray-700"}`}
-                                                onClick={() => {setStatus("Pending")
+                                                className={`w-full text-left px-4 py-2 rounded-md hover:bg-blue-100 transition-colors duration-200 ${status === "V" ? "bg-blue-600 text-white" : "text-gray-700"}`}
+                                                onClick={() => {
+                                                    setStatus("V")
                                                     setState((prev) => ({ ...prev, dropdown: false }));
                                                 }}
                                             >
-                                                Pending
+                                                Verify
                                             </button>
                                         </li>
                                         <li>
                                             <button
-                                                className={`w-full text-left px-4 py-2 rounded-md hover:bg-blue-100 transition-colors duration-200 ${status === "Approved" ? "bg-blue-600 text-white" : "text-gray-700"}`}
-                                                onClick={() => {setStatus("Approved")
+                                                className={`w-full text-left px-4 py-2 rounded-md hover:bg-blue-100 transition-colors duration-200 ${status === "R" ? "bg-blue-600 text-white" : "text-gray-700"}`}
+                                                onClick={() => {
+                                                    setStatus("R")
                                                     setState((prev) => ({ ...prev, dropdown: false }));
                                                 }}
                                             >
-                                                Approved
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <button
-                                                className={`w-full text-left px-4 py-2 rounded-md hover:bg-blue-100 transition-colors duration-200 ${status === "Reject" ? "bg-blue-600 text-white" : "text-gray-700"}`}
-                                                onClick={() =>{ setStatus("Reject")
-                                                    setState((prev) => ({ ...prev, dropdown: false }));
-                                                } }
-                                            >
-                                                Rejected
+                                                Reject
                                             </button>
                                         </li>
                                     </ul>
                                 </div>
                             )}
                             <div>{renderRejectedStatus()}</div>
-                            <button className='bg-blue-600 text-white px-6 py-2 rounded-lg mt-6 hover:bg-blue-700 transition duration-300'>
+                            <button
+                                onClick={statusSubmit}
+                                className='bg-blue-600 text-white px-6 py-2 rounded-lg mt-6 hover:bg-blue-700 transition duration-300'>
                                 Submit Document
                             </button>
                         </div>

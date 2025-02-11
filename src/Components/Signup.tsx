@@ -1,8 +1,9 @@
-import axios from "axios";
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { z } from "zod";
+import AuthService from "../../services/authServices"
 
 
 export default function Signup() {
@@ -49,18 +50,27 @@ export default function Signup() {
     }
 
     try {
-      const response = await axios.post("http://localhost:3000/api/v1/auth/signup", formData);
-      if (response.data.success) {
+      const response = await AuthService.Signup({
+        fullName: formData.fullName,
+        dateOfBirth: formData.dateOfBirth,
+        phoneNumber: formData.phoneNumber,
+        gender: formData.gender,
+      });
+      if (response.success) {
         toast.success("Signup sucess")
         navigate("/");
         setFormData({ fullName: "", dateOfBirth: "", phoneNumber: "", gender: "" });
       } else {
-        setFieldError({ general: response.data.message || "Signup failed. Please try again." });
+        setFieldError({ general: response.message || "Signup failed. Please try again." });
       }
     } catch (err: any) {
-      setFieldError({ general: err.response?.data?.message || "An unexpected error occurred." });
-    }
-  };
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "An unexpected error occurred.";
+      setFieldError({ general: errorMessage });
+    };
+  }
 
   return (
     <>

@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios, {AxiosError} from "axios";
+import {AxiosError} from "axios";
 import { z } from "zod";
 import { toast } from "react-toastify";
-
+import AuthService from "../../services/authServices"
 
 export default function Login() {
     const navigate = useNavigate();
@@ -32,10 +32,8 @@ export default function Login() {
 
         try {
             setError(null);
-            const response = await axios.post("http://localhost:3000/api/v1/auth/login", {
-                phoneNumber: phoneNumber,
-            });
-            if (response.data.success) {
+            const response = await AuthService.sendotp(phoneNumber)
+            if (response.success) {
                 setStep("otp");
             } else {
                 setError("Failed to send OTP. Please try again.");
@@ -57,14 +55,10 @@ export default function Login() {
         }
 
         try {
-            const response = await axios.post("http://localhost:3000/api/v1/auth/login/verify", {
-                phoneNumber: phoneNumber,
-                otp: otp,
-            });
-
-            if (response.data.message === "OTP Verified") {
+            const response = await AuthService.Login(phoneNumber,otp)
+            if (response.message === "OTP Verified") {
                 toast.success("Login Successful");
-                localStorage.setItem("Token", response.data.refreshToken); 
+                localStorage.setItem("Token", response.refreshToken ||""); 
                 navigate("/dashboard");
             } else {
                 setError("Invalid OTP. Please try again.");
@@ -84,7 +78,7 @@ export default function Login() {
                 <form onSubmit={handlePhoneSubmit}>
                     <div className="flex flex-col gap-3 bg-slate-300 p-8">
                         <div className="flex gap-4">
-                            <label htmlFor="phone">Phone phoneNumber</label>
+                            <label htmlFor="phone">phoneNumber</label>
                             <input
                                 type="text"
                                 id="phone"

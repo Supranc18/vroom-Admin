@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { MdDashboard, MdKeyboardArrowDown } from "react-icons/md";
 import { IoMdPerson } from "react-icons/io";
-import { FaCar } from 'react-icons/fa';
+import { FaCar, FaRegistered } from 'react-icons/fa';
 import { useState } from 'react';
 
 export default function AdminRout() {
@@ -42,6 +42,15 @@ export default function AdminRout() {
               >
                 <MdDashboard className={`${isSidebarOpen ? "":"text-2xl"} `}/>
                 {isSidebarOpen && <span>Dashboard</span>}
+              </Link>
+            </div>
+            <div>
+              <Link
+                to={"/registervehicle"}
+                className={`hover:bg-slate-700 text-white p-2 w-full flex items-center ${isSidebarOpen ? 'gap-2' : 'justify-center'}`}
+              >
+                <FaRegistered className={`${isSidebarOpen ? "":"text-2xl"} `}/>
+                {isSidebarOpen && <span>Register vehicle</span>}
               </Link>
             </div>
             <div>
